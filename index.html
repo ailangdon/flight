@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Finder - Flights Near You</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Flight Finder</h1>
+            <p class="subtitle">Discover flights within 100 miles of your location</p>
+        </header>
+
+        <div class="controls">
+            <button id="findFlights" class="btn-primary">Find Flights Near Me</button>
+            <div id="status" class="status"></div>
+        </div>
+
+        <div id="locationInfo" class="location-info hidden">
+            <h3>Your Location</h3>
+            <p>Latitude: <span id="userLat">-</span></p>
+            <p>Longitude: <span id="userLon">-</span></p>
+            <p>Search Radius: <strong>100 miles</strong></p>
+        </div>
+
+        <div id="flightStats" class="flight-stats hidden">
+            <h3>Flight Statistics</h3>
+            <p>Flights found: <span id="flightCount">0</span></p>
+            <p>Last updated: <span id="lastUpdate">-</span></p>
+        </div>
+
+        <div id="flightList" class="flight-list">
+            <!-- Flights will be populated here -->
+        </div>
+
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Searching for flights...</p>
+        </div>
+
+        <div id="error" class="error hidden"></div>
+    </div>
+
+    <footer>
+        <p>Flight data provided by <a href="https://opensky-network.org/" target="_blank">OpenSky Network</a></p>
+        <p>Data is updated in real-time and may have a slight delay</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
