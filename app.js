@@ -5,6 +5,9 @@ const RADIUS_KM = RADIUS_MILES * MILES_TO_KM;
 
 // DOM Elements
 const findFlightsBtn = document.getElementById('findFlights');
+const searchManualBtn = document.getElementById('searchManual');
+const manualLatInput = document.getElementById('manualLat');
+const manualLonInput = document.getElementById('manualLon');
 const statusDiv = document.getElementById('status');
 const locationInfoDiv = document.getElementById('locationInfo');
 const flightStatsDiv = document.getElementById('flightStats');
@@ -21,6 +24,7 @@ let userLocation = null;
 
 // Event Listeners
 findFlightsBtn.addEventListener('click', findNearbyFlights);
+searchManualBtn.addEventListener('click', searchManualLocation);
 
 // Main function to find nearby flights
 async function findNearbyFlights() {
@@ -35,35 +39,85 @@ async function findNearbyFlights() {
 
         userLocation = await getUserLocation();
 
-        // Display user location
-        userLatSpan.textContent = userLocation.latitude.toFixed(4);
-        userLonSpan.textContent = userLocation.longitude.toFixed(4);
-        locationInfoDiv.classList.remove('hidden');
-
-        // Fetch flights
-        updateStatus('Fetching flight data...');
-        const flights = await fetchFlights(userLocation);
-
-        // Filter flights by distance
-        updateStatus('Calculating distances...');
-        const nearbyFlights = filterNearbyFlights(flights, userLocation);
-
-        // Display results
-        hideLoading();
-        displayFlights(nearbyFlights);
-
-        // Update stats
-        flightCountSpan.textContent = nearbyFlights.length;
-        lastUpdateSpan.textContent = new Date().toLocaleTimeString();
-        flightStatsDiv.classList.remove('hidden');
-
-        updateStatus(`Found ${nearbyFlights.length} flights within ${RADIUS_MILES} miles`);
+        // Search with the location
+        await searchFlightsAtLocation(userLocation);
 
     } catch (error) {
         hideLoading();
         showError(error.message);
         updateStatus('');
     }
+}
+
+// Function to search flights using manual coordinates
+async function searchManualLocation() {
+    try {
+        // Reset UI
+        hideError();
+        flightListDiv.innerHTML = '';
+
+        // Validate inputs
+        const lat = parseFloat(manualLatInput.value);
+        const lon = parseFloat(manualLonInput.value);
+
+        if (isNaN(lat) || isNaN(lon)) {
+            showError('Please enter valid latitude and longitude values.');
+            return;
+        }
+
+        if (lat < -90 || lat > 90) {
+            showError('Latitude must be between -90 and 90.');
+            return;
+        }
+
+        if (lon < -180 || lon > 180) {
+            showError('Longitude must be between -180 and 180.');
+            return;
+        }
+
+        showLoading();
+        updateStatus('Searching flights at specified location...');
+
+        userLocation = {
+            latitude: lat,
+            longitude: lon
+        };
+
+        // Search with the manual location
+        await searchFlightsAtLocation(userLocation);
+
+    } catch (error) {
+        hideLoading();
+        showError(error.message);
+        updateStatus('');
+    }
+}
+
+// Common function to search flights at a given location
+async function searchFlightsAtLocation(location) {
+    // Display user location
+    userLatSpan.textContent = location.latitude.toFixed(4);
+    userLonSpan.textContent = location.longitude.toFixed(4);
+    locationInfoDiv.classList.remove('hidden');
+
+    // Fetch flights
+    updateStatus('Fetching flight data...');
+    const flights = await fetchFlights(location);
+
+    // Filter flights by distance
+    updateStatus('Calculating distances...');
+    const nearbyFlights = filterNearbyFlights(flights, location);
+
+    // Display results
+    hideLoading();
+    displayFlights(nearbyFlights);
+
+    // Update stats
+    flightCountSpan.textContent = nearbyFlights.length;
+    lastUpdateSpan.textContent = new Date().toLocaleTimeString();
+    flightStatsDiv.classList.remove('hidden');
+
+    updateStatus(`Found ${nearbyFlights.length} flights within ${RADIUS_MILES} miles`);
 }
 
 // Get user's geolocation
@@ -270,11 +324,13 @@ function updateStatus(message) {
 function showLoading() {
     loadingDiv.classList.remove('hidden');
     findFlightsBtn.disabled = true;
+    searchManualBtn.disabled = true;
 }
 
 function hideLoading() {
     loadingDiv.classList.add('hidden');
     findFlightsBtn.disabled = false;
+    searchManualBtn.disabled = false;
 }
 
 function showError(message) {
