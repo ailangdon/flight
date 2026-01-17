@@ -15,6 +15,20 @@
 
         <div class="controls">
             <button id="findFlights" class="btn-primary">Find Flights Near Me</button>
+            <div class="manual-location">
+                <p class="or-divider">OR</p>
+                <div class="input-group">
+                    <div class="input-field">
+                        <label for="manualLat">Latitude:</label>
+                        <input type="number" id="manualLat" step="0.0001" placeholder="e.g., 40.7128" min="-90" max="90">
+                    </div>
+                    <div class="input-field">
+                        <label for="manualLon">Longitude:</label>
+                        <input type="number" id="manualLon" step="0.0001" placeholder="e.g., -74.0060" min="-180" max="180">
+                    </div>
+                </div>
+                <button id="searchManual" class="btn-secondary">Search Location</button>
+            </div>
             <div id="status" class="status"></div>
         </div>
 
