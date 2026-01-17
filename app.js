@@ -24,7 +24,14 @@ let userLocation = null;
 
 // Event Listeners
 findFlightsBtn.addEventListener('click', findNearbyFlights);
-searchManualBtn.addEventListener('click', searchManualLocation);
+
+// Debug: Check if button exists
+if (!searchManualBtn) {
+    console.error('Search Manual Button not found!');
+} else {
+    console.log('Search Manual Button found, adding event listener');
+    searchManualBtn.addEventListener('click', searchManualLocation);
+}
 
 // Main function to find nearby flights
 async function findNearbyFlights() {
@@ -51,6 +58,7 @@ async function findNearbyFlights() {
 
 // Function to search flights using manual coordinates
 async function searchManualLocation() {
+    console.log('Search Location button clicked!'); // Debug log
     try {
         // Reset UI
         hideError();
@@ -59,6 +67,7 @@ async function searchManualLocation() {
         // Validate inputs
         const lat = parseFloat(manualLatInput.value);
         const lon = parseFloat(manualLonInput.value);
+        console.log('Lat:', lat, 'Lon:', lon); // Debug log
 
         if (isNaN(lat) || isNaN(lon)) {
             showError('Please enter valid latitude and longitude values.');
