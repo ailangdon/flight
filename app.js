@@ -21,6 +21,7 @@ const lastUpdateSpan = document.getElementById('lastUpdate');
 
 // State
 let userLocation = null;
+let airportCache = {}; // Cache for airport code to city name lookups
 
 // Event Listeners
 findFlightsBtn.addEventListener('click', findNearbyFlights);
@@ -217,6 +218,36 @@ async function fetchFlights(location) {
     }
 }
 
+// Convert airport code to city name
+async function getAirportCity(airportCode) {
+    if (!airportCode || airportCode === 'N/A' || airportCode === 'unavailable') {
+        return airportCode;
+    }
+
+    // Check cache first
+    if (airportCache[airportCode]) {
+        return airportCache[airportCode];
+    }
+
+    try {
+        // Use a free airport lookup API
+        const response = await fetch(`https://airportdb.io/api/v1/airport/${airportCode}?apiToken=demo`);
+
+        if (response.ok) {
+            const data = await response.json();
+            const cityName = data.municipality || data.name || airportCode;
+            airportCache[airportCode] = cityName;
+            return cityName;
+        }
+    } catch (error) {
+        console.log(`Could not fetch city for airport ${airportCode}:`, error);
+    }
+
+    // Fallback: return the code itself
+    airportCache[airportCode] = airportCode;
+    return airportCode;
+}
+
 // Enrich flights with route data (origin/destination airports)
 async function enrichFlightsWithRouteData(flights) {
     // Fetch route data for each flight asynchronously
@@ -235,8 +266,12 @@ async function enrichFlightsWithRouteData(flights) {
                 // Find the most recent flight that matches or is close to current time
                 if (flightData && flightData.length > 0) {
                     const recentFlight = flightData[flightData.length - 1];
-                    flight.origin = recentFlight.estDepartureAirport || 'N/A';
-                    flight.destination = recentFlight.estArrivalAirport || 'N/A';
+                    const originCode = recentFlight.estDepartureAirport || 'N/A';
+                    const destCode = recentFlight.estArrivalAirport || 'N/A';
+
+                    // Convert airport codes to city names
+                    flight.origin = await getAirportCity(originCode);
+                    flight.destination = await getAirportCity(destCode);
 
                     // Update the flight card in the DOM
                     updateFlightCard(flight);
@@ -254,7 +289,7 @@ async function enrichFlightsWithRouteData(flights) {
             }
 
             // Small delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 150));
         } catch (error) {
             console.log(`Could not fetch route for ${flight.callsign}:`, error);
             // Mark as unavailable
