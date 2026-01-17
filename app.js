@@ -21,6 +21,7 @@ const lastUpdateSpan = document.getElementById('lastUpdate');
 
 // State
 let userLocation = null;
+let airportCache = {}; // Cache for airport code to city name lookups
 
 // Event Listeners
 findFlightsBtn.addEventListener('click', findNearbyFlights);
@@ -112,6 +113,9 @@ async function searchFlightsAtLocation(location) {
     hideLoading();
     displayFlights(nearbyFlights);
 
+    // Fetch route information for nearby flights (async, non-blocking)
+    enrichFlightsWithRouteData(nearbyFlights);
+
     // Update stats
     flightCountSpan.textContent = nearbyFlights.length;
     lastUpdateSpan.textContent = new Date().toLocaleTimeString();
@@ -191,6 +195,7 @@ async function fetchFlights(location) {
 
         // Parse flight data
         return data.states.map(state => ({
+            icao24: state[0],
             callsign: state[1] ? state[1].trim() : 'Unknown',
             origin_country: state[2],
             longitude: state[5],
@@ -199,7 +204,9 @@ async function fetchFlights(location) {
             velocity: state[9], // m/s
             heading: state[10], // degrees
             vertical_rate: state[11], // m/s
-            on_ground: state[8]
+            on_ground: state[8],
+            origin: null, // Will be populated if available
+            destination: null // Will be populated if available
         })).filter(flight =>
             flight.latitude !== null &&
             flight.longitude !== null &&
@@ -209,6 +216,108 @@ async function fetchFlights(location) {
     } catch (error) {
         throw new Error(`Error fetching flights: ${error.message}`);
     }
+}
+
+// Convert airport code to city name
+async function getAirportCity(airportCode) {
+    if (!airportCode || airportCode === 'N/A' || airportCode === 'unavailable') {
+        return airportCode;
+    }
+
+    // Check cache first
+    if (airportCache[airportCode]) {
+        return airportCache[airportCode];
+    }
+
+    try {
+        // Use a free airport lookup API
+        const response = await fetch(`https://airportdb.io/api/v1/airport/${airportCode}?apiToken=demo`);
+
+        if (response.ok) {
+            const data = await response.json();
+            const cityName = data.municipality || data.name || airportCode;
+            airportCache[airportCode] = cityName;
+            return cityName;
+        }
+    } catch (error) {
+        console.log(`Could not fetch city for airport ${airportCode}:`, error);
+    }
+
+    // Fallback: return the code itself
+    airportCache[airportCode] = airportCode;
+    return airportCode;
+}
+
+// Enrich flights with route data (origin/destination airports)
+async function enrichFlightsWithRouteData(flights) {
+    // Fetch route data for each flight asynchronously
+    const now = Math.floor(Date.now() / 1000);
+    const oneDayAgo = now - 86400; // 24 hours ago
+
+    for (const flight of flights) {
+        try {
+            // Try to get flight information from OpenSky
+            const url = `https://opensky-network.org/api/flights/aircraft?icao24=${flight.icao24}&begin=${oneDayAgo}&end=${now}`;
+            const response = await fetch(url);
+
+            if (response.ok) {
+                const flightData = await response.json();
+
+                // Find the most recent flight that matches or is close to current time
+                if (flightData && flightData.length > 0) {
+                    const recentFlight = flightData[flightData.length - 1];
+                    const originCode = recentFlight.estDepartureAirport || 'N/A';
+                    const destCode = recentFlight.estArrivalAirport || 'N/A';
+
+                    // Convert airport codes to city names
+                    flight.origin = await getAirportCity(originCode);
+                    flight.destination = await getAirportCity(destCode);
+
+                    // Update the flight card in the DOM
+                    updateFlightCard(flight);
+                } else {
+                    // No flight data available
+                    flight.origin = 'unavailable';
+                    flight.destination = 'unavailable';
+                    updateFlightCard(flight);
+                }
+            } else {
+                // API request failed
+                flight.origin = 'unavailable';
+                flight.destination = 'unavailable';
+                updateFlightCard(flight);
+            }
+
+            // Small delay to avoid rate limiting
+            await new Promise(resolve => setTimeout(resolve, 150));
+        } catch (error) {
+            console.log(`Could not fetch route for ${flight.callsign}:`, error);
+            // Mark as unavailable
+            flight.origin = 'unavailable';
+            flight.destination = 'unavailable';
+            updateFlightCard(flight);
+        }
+    }
+}
+
+// Update a flight card's route information
+function updateFlightCard(flight) {
+    const cards = document.querySelectorAll('.flight-card');
+    cards.forEach(card => {
+        const callsignElem = card.querySelector('.callsign');
+        if (callsignElem && callsignElem.textContent === flight.callsign) {
+            const routeElem = card.querySelector('.route-info');
+            if (routeElem && flight.origin && flight.destination) {
+                if (flight.origin === 'unavailable' || flight.destination === 'unavailable') {
+                    routeElem.textContent = 'Data not available';
+                    routeElem.classList.remove('loading');
+                } else {
+                    routeElem.textContent = `${flight.origin} → ${flight.destination}`;
+                    routeElem.classList.remove('loading');
+                }
+            }
+        }
+    });
 }
 
 // Calculate distance between two points using Haversine formula
@@ -288,8 +397,13 @@ function createFlightCard(flight) {
                             verticalRate < 0 ? `Descending (${Math.abs(verticalRate)} ft/min)` :
                             'Level';
 
+    const routeText = (flight.origin && flight.destination)
+        ? `${flight.origin} → ${flight.destination}`
+        : 'Loading route...';
+
     card.innerHTML = `
         <div class="callsign">${flight.callsign}</div>
+        <div class="route-info ${!flight.origin ? 'loading' : ''}">${routeText}</div>
         <div class="flight-info">
             <span class="label">Origin Country:</span>
             <span class="value">${flight.origin_country}</span>
