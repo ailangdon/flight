@@ -240,14 +240,27 @@ async function enrichFlightsWithRouteData(flights) {
 
                     // Update the flight card in the DOM
                     updateFlightCard(flight);
+                } else {
+                    // No flight data available
+                    flight.origin = 'unavailable';
+                    flight.destination = 'unavailable';
+                    updateFlightCard(flight);
                 }
+            } else {
+                // API request failed
+                flight.origin = 'unavailable';
+                flight.destination = 'unavailable';
+                updateFlightCard(flight);
             }
 
             // Small delay to avoid rate limiting
             await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
             console.log(`Could not fetch route for ${flight.callsign}:`, error);
-            // Keep origin/destination as null
+            // Mark as unavailable
+            flight.origin = 'unavailable';
+            flight.destination = 'unavailable';
+            updateFlightCard(flight);
         }
     }
 }
@@ -260,8 +273,13 @@ function updateFlightCard(flight) {
         if (callsignElem && callsignElem.textContent === flight.callsign) {
             const routeElem = card.querySelector('.route-info');
             if (routeElem && flight.origin && flight.destination) {
-                routeElem.textContent = `${flight.origin} → ${flight.destination}`;
-                routeElem.classList.remove('loading');
+                if (flight.origin === 'unavailable' || flight.destination === 'unavailable') {
+                    routeElem.textContent = 'Data not available';
+                    routeElem.classList.remove('loading');
+                } else {
+                    routeElem.textContent = `${flight.origin} → ${flight.destination}`;
+                    routeElem.classList.remove('loading');
+                }
             }
         }
     });
